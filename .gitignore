@@ -34,4 +34,5 @@ build/
 
 
 .env
-.properties
+application.properties
+src/main/resources/application.properties
