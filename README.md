@@ -1,0 +1,1 @@
+![spring-logo](src/main/resources/spring.png)
