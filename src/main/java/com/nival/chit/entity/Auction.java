@@ -1,33 +1,50 @@
 package com.nival.chit.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Data;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 @Entity
 @Data
-@Table(name = "Auction")
+@EntityListeners(AuditingEntityListener.class)
+@Table(name = "auction")
 public class Auction {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private long id;
 
-    private ChitGroup chitGroupId;
-
+    @Column(nullable = false, length = 20)
     private String month;
 
+    @Column(name = "winning_amount", nullable = false)
+    private double winningAmount;
+
+    @Column(nullable = false)
+    private double commission;
+
+    @Column(name = "auction_date", nullable = false)
+    private LocalDateTime auctionDate;
+
+    @Column(length = 200)
+    private String remark;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "winning_member_id", nullable = false)
     private User winningMemberId;
 
-    private Double winningAmount;
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "chit_group_id", nullable = false)
+    private ChitGroup chitGroup;
 
-    private Double commission;
+    @CreatedDate
+    @Column(name = "created_at", updatable = false, nullable = false)
+    private LocalDateTime createdAt;
 
-    private Date auctionDate;
-
-    private String remark;
+    @LastModifiedDate
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 }

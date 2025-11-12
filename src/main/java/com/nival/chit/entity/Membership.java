@@ -2,41 +2,42 @@ package com.nival.chit.entity;
 
 import com.nival.chit.enums.UserStatus;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.Setter;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "Membership")
+@Table(name = "membership")
 @Data
 public class Membership {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Setter(AccessLevel.NONE)
-    private Long id;
+    private long id;
 
-    private User userid;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "user_id")
+    private User user;
 
-    private ChitGroup chitGroupId;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "chit_group_id")
+    private ChitGroup chitGroup;
 
-    private Date jointDate;
+    private LocalDateTime joinDate;
 
+    @Enumerated(EnumType.STRING)
     private UserStatus status;
 
-    /**
-     *
-     @OneToMany(mappedBy = "events", cascade = CascadeType.ALL, orphanRemoval = true)
-     private List<Register> registers;
+    @PrePersist
+    protected void onCreate() {
+        if (joinDate == null) {
+            joinDate = LocalDateTime.now();
+        }
+    }
 
-     @OneToMany(mappedBy = "events", cascade = CascadeType.ALL)
-     private List<Results> results;
-
-     */
 }
+
+

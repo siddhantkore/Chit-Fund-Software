@@ -1,40 +1,53 @@
 package com.nival.chit.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.Setter;
+import jakarta.persistence.*;
+import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 @Entity
+@Table(name = "ledger")
+@EntityListeners(AuditingEntityListener.class)
 @Data
-@AllArgsConstructor
-@Table(name = "Ledger")
+@NoArgsConstructor
 public class Ledger {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Setter(AccessLevel.NONE)
-    private Long id;
+    private long id;
 
-    private ChitGroup chitGroupId;
+    @Column(name = "entry_type", nullable = false, length = 50)
+    private String entryType;  // e.g., "CREDIT", "DEBIT"
 
-    private String entryType;
+    @Column(nullable = false)
+    private double amount;
 
-    private Double amount;
+    @Column(name = "entry_date", nullable = false)
+    private LocalDateTime entryDate;
 
-    private Date entryDate;
-
+    @Column(length = 255)
     private String remark;
 
-    private String referenceId; // link to Auction or payments
+    @Column(name = "reference_id", length = 50)
+    private String referenceId; // ID from related Auction or Payment
 
-    private User createdBy;
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "chit_group_id", nullable = false)
+    private ChitGroup chitGroup;
+
+    @CreatedDate
+    @Column(name = "created_at", updatable = false, nullable = false)
+    private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
 }
