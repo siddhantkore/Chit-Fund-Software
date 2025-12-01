@@ -1,4 +1,4 @@
-package com.nival.chit.controllers;
+package com.nival.chit.controllers.chitgroup;
 
 import com.nival.chit.services.ChitGroupService;
 import lombok.RequiredArgsConstructor;
