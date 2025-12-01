@@ -65,6 +65,9 @@ public class ChitGroup {
     @OneToMany(mappedBy = "chitGroup", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Payments> payments;
 
+    @OneToMany(mappedBy = "chitGroup", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<NotificationConfig> notificationConfigs;
+
     @PrePersist
     protected void onCreate() {
         this.groupCode = generateGroupCode();
