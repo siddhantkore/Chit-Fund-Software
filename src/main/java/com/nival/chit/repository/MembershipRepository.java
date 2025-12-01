@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Repository for memberships linking users to chit groups.
@@ -25,6 +26,12 @@ public interface MembershipRepository extends JpaRepository<Membership, Long> {
      */
     @Query("SELECT m FROM Membership m WHERE m.chitGroup.id = :groupId")
     List<Membership> findByGroupId(@Param("groupId") Long groupId);
+
+    /**
+     * Find membership by user and group.
+     */
+    @Query("SELECT m FROM Membership m WHERE m.user.id = :userId AND m.chitGroup.id = :groupId")
+    Optional<Membership> findByUserIdAndGroupId(@Param("userId") Long userId, @Param("groupId") Long groupId);
 }
 
 
