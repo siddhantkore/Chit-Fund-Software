@@ -1,0 +1,31 @@
+spring.application.name=chit
+spring.server.port=8080
+
+# SQL
+spring.datasource.url=jdbc:mysql://localhost:3306/chitfund_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+spring.datasource.password=MySQL@123
+spring.datasource.username=root
+
+# Hibernate
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
+spring.properties.hibernate.format_sql=true
+
+##################################
+#postgres configuration
+#spring.datasource.url=jdbc:postgresql://localhost:5432/chitfund
+#spring.datasource.username=postgres
+#spring.datasource.password=postgres
+#spring.datasource.driver-class-name=org.postgresql.Driver
+#spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+#spring.jpa.hibernate.ddl-auto=update
+#spring.jpa.show-sql=true
+#spring.properties.hibernate.format_sql=true
+
+
+# Spring Security
+
+spring.security.user.name=admin
+spring.security.user.password={noop}admin123
