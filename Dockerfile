@@ -14,24 +14,38 @@ RUN mvn dependency:go-offline
 COPY src ./src
 
 # Build the project (skip tests for faster builds)
-RUN mvn clean package -DskipTests
+RUN mvn clean package -DskipTests -B -DskipTests=true
 
 # ===============================
 # Stage 2: Run the JAR
 # ===============================
-FROM eclipse-temurin:21-jdk-alpine
+FROM eclipse-temurin:21-jre-jammy AS runtime
 
-# Set working directory
+# Create non-root user for better security
+RUN useradd --create-home --shell /bin/bash appuser || true
+
 WORKDIR /app
 
-# Copy the JAR from the previous stage
-COPY --from=build /app/target/*.jar app.jar
+# Copy jar (artifact) from build stage
+ARG JAR_FILE=target/*.jar
+COPY --from=build /app/${JAR_FILE} /app/app.jar
 
-# Expose the port (change if your app runs on a different port)
+# Copy entrypoint script
+COPY docker/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh && chown -R appuser:appuser /app
+
+## Install minimal runtime dependencies (curl for healthcheck)
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
+USER appuser
 EXPOSE 8080
 
-# Environment variables (optional)
 ENV JAVA_OPTS="-Xms256m -Xmx512m"
+ENV SPRING_PROFILES_ACTIVE=default
 
-# Run the application
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+# Simple healthcheck (requires actuator or accessible port)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+	CMD curl -f http://localhost:8080/actuator/health || exit 1
+
+ENTRYPOINT ["/app/entrypoint.sh"]
