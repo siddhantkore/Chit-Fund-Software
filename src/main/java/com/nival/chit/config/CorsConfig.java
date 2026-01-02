@@ -46,7 +46,7 @@ public class CorsConfig implements WebMvcConfigurer {
         if (origins.length == 1 && "*".equals(origins[0])) {
             reg.allowedOriginPatterns("*");
         } else if (origins.length > 0) {
-            reg.allowedOrigins(origins);
+            reg.allowedOrigins("*");
         } else {
             reg.allowedOriginPatterns("*");
         }
