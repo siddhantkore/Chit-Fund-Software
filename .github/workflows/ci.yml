@@ -42,10 +42,10 @@ jobs:
       - name: Run unit tests and verify (includes Checkstyle & Spotless configured in pom)
         run: mvn -B -ntp -DskipTests=false verify --no-transfer-progress
 
-      - name: Run explicit quality checks (Checkstyle & Spotless)
-        run: |
-          mvn -B checkstyle:check -DskipTests=true || true
-          mvn -B spotless:check -DskipTests=true || true
+#      - name: Run explicit quality checks (Checkstyle & Spotless)
+#        run: |
+#          mvn -B checkstyle:check -DskipTests=true || true
+#          mvn -B spotless:check -DskipTests=true || true
 
       - name: Upload test reports
         if: always()
@@ -56,13 +56,13 @@ jobs:
             target/surefire-reports/**
             target/failsafe-reports/**
 
-      - name: Upload checkstyle results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: checkstyle-results
-          path: |
-            target/checkstyle-result.xml
+#      - name: Upload checkstyle results
+#        if: always()
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: checkstyle-results
+#          path: |
+#            target/checkstyle-result.xml
 
       - name: Get commit info
         id: commit_info
