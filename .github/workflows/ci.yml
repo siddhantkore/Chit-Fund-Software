@@ -1,0 +1,86 @@
+name: Java CI (Maven)
+
+on:
+  push:
+    branches: [ '**' ]
+  pull_request:
+    branches: [ '**' ]
+
+jobs:
+  build:
+    name: Build, Test & Quality Checks
+    runs-on: ubuntu-latest
+    env:
+      MAVEN_OPTS: -Xmx2g
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21 and cache Maven
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: '**/pom.xml'
+
+      - name: Verify Java
+        run: java -version
+
+      - name: Cache local Maven repository (extra safety)
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-m2-
+
+      - name: Install dependencies
+        run: mvn -B -ntp -DskipTests=true -DskipITs=true package --no-transfer-progress
+
+      - name: Run unit tests and verify (includes Checkstyle & Spotless configured in pom)
+        run: mvn -B -ntp -DskipTests=false verify --no-transfer-progress
+
+#      - name: Run explicit quality checks (Checkstyle & Spotless)
+#        run: |
+#          mvn -B checkstyle:check -DskipTests=true || true
+#          mvn -B spotless:check -DskipTests=true || true
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            target/surefire-reports/**
+            target/failsafe-reports/**
+
+#      - name: Upload checkstyle results
+#        if: always()
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: checkstyle-results
+#          path: |
+#            target/checkstyle-result.xml
+
+      - name: Get commit info
+        id: commit_info
+        run: |
+          echo "author=$(git log -1 --pretty=format:'%an')" >> $GITHUB_OUTPUT
+          echo "message=$(git log -1 --pretty=format:'%s')" >> $GITHUB_OUTPUT
+          echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Send email notification (always)
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_HOST }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          secure: true
+          subject: 'Build ${{ job.status }}: ${{ github.repository }} @ ${{ steps.commit_info.outputs.sha }}'
+          body: 'Build status: ${{ job.status }}\nRepository: ${{ github.repository }}\nBranch: ${{ github.ref }}\nCommit: ${{ steps.commit_info.outputs.sha }}\nCommit message: ${{ steps.commit_info.outputs.message }}\nCommit author: ${{ steps.commit_info.outputs.author }}\nRun URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+          to: ${{ secrets.RECIPIENT_EMAIL }}
+          from: ${{ secrets.SENDER_EMAIL }}
