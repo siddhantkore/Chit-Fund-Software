@@ -4,9 +4,15 @@ import com.nival.chit.dto.ChitGroupDTO;
 import com.nival.chit.dto.CreateChitGroupDTO;
 import com.nival.chit.entity.ChitGroup;
 import com.nival.chit.entity.Funds;
+import com.nival.chit.entity.Membership;
+import com.nival.chit.entity.User;
 import com.nival.chit.enums.ChitGroupStatus;
+import com.nival.chit.enums.UserRoles;
+import com.nival.chit.enums.UserStatus;
 import com.nival.chit.repository.ChitGroupRepository;
 import com.nival.chit.repository.FundsRepository;
+import com.nival.chit.repository.MembershipRepository;
+import com.nival.chit.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,15 +33,18 @@ public class ChitGroupService {
 
     private final ChitGroupRepository chitGroupRepository;
     private final FundsRepository fundsRepository;
+    private final MembershipRepository membershipRepository;
+    private final UserRepository userRepository;
 
     /**
      * Create a new chit group with associated fund.
      *
      * @param createDTO the chit group creation data
+     * @param creatorUserId the user ID of the creator (who will be group admin)
      * @return the created chit group DTO
      */
     @Transactional
-    public ChitGroupDTO createChitGroup(CreateChitGroupDTO createDTO) {
+    public ChitGroupDTO createChitGroup(CreateChitGroupDTO createDTO, Long creatorUserId) {
         ChitGroup group = new ChitGroup();
         group.setName(createDTO.getName());
         group.setDuration(createDTO.getDuration());
@@ -58,6 +67,20 @@ public class ChitGroupService {
 
         group.setFundId(fund);
         group = chitGroupRepository.save(group);
+
+        // Auto-add creator as Admin of the group
+        if (creatorUserId != null) {
+            User creator = userRepository.findById(creatorUserId)
+                    .orElseThrow(() -> new IllegalArgumentException("Creator user not found: " + creatorUserId));
+            
+            Membership adminMembership = new Membership();
+            adminMembership.setUser(creator);
+            adminMembership.setChitGroup(group);
+            adminMembership.setRole(UserRoles.ADMIN);
+            adminMembership.setStatus(UserStatus.ACTIVE);
+            membershipRepository.save(adminMembership);
+            log.info("Auto-added creator {} as Admin for group {}", creatorUserId, group.getName());
+        }
 
         log.info("Chit group created: {} with code: {}", group.getName(), group.getGroupCode());
         return convertToDTO(group);

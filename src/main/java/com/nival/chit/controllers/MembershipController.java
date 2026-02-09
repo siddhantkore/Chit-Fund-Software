@@ -11,10 +11,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -25,12 +22,13 @@ import java.util.List;
  * <ul>
  *     <li>Viewing all groups a user is a member of</li>
  *     <li>Viewing membership details</li>
+ *     <li>Joining a group by code</li>
  * </ul>
  */
 @RestController
 @RequestMapping("/api/chit/membership/")
 @RequiredArgsConstructor
-@Tag(name = "Memberships", description = "View user memberships across chit groups.")
+@Tag(name = "Memberships", description = "View and manage user memberships across chit groups.")
 public class MembershipController {
 
     private final ChitGroupMemberOperationsService chitGroupMemberOperationsService;
@@ -45,7 +43,7 @@ public class MembershipController {
     @Operation(
         summary = "Get all groups for a user",
         description = "Retrieves all chit groups that a specific user is a member of. " +
-                     "Returns membership details including join date and status."
+                     "Returns membership details including join date, role, and status."
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -59,5 +57,34 @@ public class MembershipController {
             @PathVariable Long userId) {
         List<MembershipDTO> memberships = chitGroupMemberOperationsService.getUserMemberships(userId);
         return ResponseEntity.ok(memberships);
+    }
+
+    /**
+     * Join a group by group code.
+     * 
+     * @param groupCode the unique group code
+     * @param userId the user ID who wants to join
+     * @return the created membership DTO
+     */
+    @PostMapping("/join")
+    @Operation(
+        summary = "Join a group by code",
+        description = "Allows a user to join a chit group by providing its unique group code."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Successfully joined group",
+            content = @Content(schema = @Schema(implementation = MembershipDTO.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid code or user already member")
+    })
+    public ResponseEntity<MembershipDTO> joinByCode(
+            @Parameter(description = "The unique group code", required = true)
+            @RequestParam String groupCode,
+            @Parameter(description = "ID of the user joining", required = true)
+            @RequestParam Long userId) {
+        MembershipDTO membership = chitGroupMemberOperationsService.joinGroupByCode(groupCode, userId);
+        return ResponseEntity.ok(membership);
     }
 }

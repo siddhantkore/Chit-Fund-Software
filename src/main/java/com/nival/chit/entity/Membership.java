@@ -1,5 +1,6 @@
 package com.nival.chit.entity;
 
+import com.nival.chit.enums.UserRoles;
 import com.nival.chit.enums.UserStatus;
 
 import jakarta.persistence.*;
@@ -30,6 +31,10 @@ public class Membership {
 
     @Enumerated(EnumType.STRING)
     private UserStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "group_role")
+    private UserRoles role;
 
     @PrePersist
     protected void onCreate() {

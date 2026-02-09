@@ -4,6 +4,7 @@ import com.nival.chit.dto.MembershipDTO;
 import com.nival.chit.entity.ChitGroup;
 import com.nival.chit.entity.Membership;
 import com.nival.chit.entity.User;
+import com.nival.chit.enums.UserRoles;
 import com.nival.chit.enums.UserStatus;
 import com.nival.chit.repository.ChitGroupRepository;
 import com.nival.chit.repository.MembershipRepository;
@@ -60,11 +61,27 @@ public class ChitGroupMemberOperationsService {
         membership.setUser(user);
         membership.setChitGroup(group);
         membership.setStatus(UserStatus.ACTIVE);
+        membership.setRole(UserRoles.MEMBER); // Default role
 
         membership = membershipRepository.save(membership);
-        log.info("User {} added to group {}", userId, groupId);
+        log.info("User {} added to group {} as MEMBER", userId, groupId);
 
         return convertToDTO(membership);
+    }
+
+    /**
+     * Join a group using a group code.
+     *
+     * @param groupCode the unique group code
+     * @param userId the user ID who wants to join
+     * @return the created membership DTO
+     */
+    @Transactional
+    public MembershipDTO joinGroupByCode(String groupCode, Long userId) {
+        ChitGroup group = chitGroupRepository.findByGroupCode(groupCode)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid group code: " + groupCode));
+
+        return addMemberToGroup(group.getId(), userId);
     }
 
     /**
@@ -145,6 +162,7 @@ public class ChitGroupMemberOperationsService {
                 .chitGroupCode(membership.getChitGroup().getGroupCode())
                 .joinDate(membership.getJoinDate())
                 .status(membership.getStatus())
+                .role(membership.getRole())
                 .build();
     }
 }

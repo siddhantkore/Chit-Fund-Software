@@ -47,7 +47,8 @@ public class ChitGroupController {
     @Operation(
         summary = "Create a new chit group",
         description = "Creates a new chit group with specified parameters. " +
-                     "Automatically generates a unique group code and creates an associated fund."
+                     "Automatically generates a unique group code and creates an associated fund. " +
+                     "The user specified by adminId will be auto-added as the group admin."
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -57,8 +58,11 @@ public class ChitGroupController {
         ),
         @ApiResponse(responseCode = "400", description = "Invalid input data")
     })
-    public ResponseEntity<ChitGroupDTO> createChitGroup(@RequestBody CreateChitGroupDTO createDTO) {
-        ChitGroupDTO group = chitGroupService.createChitGroup(createDTO);
+    public ResponseEntity<ChitGroupDTO> createChitGroup(
+            @RequestBody CreateChitGroupDTO createDTO,
+            @Parameter(description = "ID of the user who will be the group admin", required = true)
+            @RequestParam Long adminId) {
+        ChitGroupDTO group = chitGroupService.createChitGroup(createDTO, adminId);
         return ResponseEntity.status(HttpStatus.CREATED).body(group);
     }
 

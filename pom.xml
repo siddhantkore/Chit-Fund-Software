@@ -17,9 +17,20 @@
 	<licenses>
 		<license/>
 	</licenses>
+
 	<developers>
-		<developer/>
+		<developer>
+			<name>Siddhant Kore</name>
+			<email>siddhskore@gmail.com</email>
+			<url>https://siddhantkore.me</url> <!-- portfolio -->
+			<roles>
+				<role>Lead Developer</role>
+				<role>Software Engineer</role>
+			</roles>
+			<timezone>UTC+5:30</timezone>
+		</developer>
 	</developers>
+	
 	<scm>
 		<connection/>
 		<developerConnection/>
