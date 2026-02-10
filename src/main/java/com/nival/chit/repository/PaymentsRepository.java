@@ -47,6 +47,14 @@ public interface PaymentsRepository extends JpaRepository<Payments, Long> {
             @Param("asOf") LocalDateTime asOf
     );
 
+    List<Payments> findByChitGroupIdAndVerifiedFalseOrderByCreatedAtDesc(Long chitGroupId);
+
+    @Query("SELECT COUNT(p) FROM Payments p WHERE p.chitGroup.id = :chitGroupId AND p.verified = false")
+    int countUnverifiedByGroupId(@Param("chitGroupId") Long chitGroupId);
+
+    @Query("SELECT SUM(p.amountPaid) FROM Payments p WHERE p.chitGroup.id = :chitGroupId AND p.verified = false")
+    Double sumUnverifiedAmountByGroupId(@Param("chitGroupId") Long chitGroupId);
+
     /**
      * List of payments for a user in a chit group.
      */

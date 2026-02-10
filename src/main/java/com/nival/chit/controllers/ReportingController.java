@@ -1,5 +1,6 @@
 package com.nival.chit.controllers;
 
+import com.nival.chit.dto.AccountantAuditReportDTO;
 import com.nival.chit.dto.GroupFinancialSummaryDTO;
 import com.nival.chit.dto.MemberGroupFinancialSummaryDTO;
 import com.nival.chit.services.ReportingService;
@@ -31,6 +32,12 @@ import java.util.List;
 public class ReportingController {
 
     private final ReportingService reportingService;
+
+    @GetMapping("/audit/{groupId}")
+    @Operation(summary = "Get audit report (Accountant flow)", description = "Shows unverified payments and financial anomalies for auditing.")
+    public ResponseEntity<AccountantAuditReportDTO> getAuditReport(@PathVariable Long groupId) {
+        return ResponseEntity.ok(reportingService.getAccountantAuditReport(groupId));
+    }
 
     /**
      * Get real-time financial summary for a chit group.

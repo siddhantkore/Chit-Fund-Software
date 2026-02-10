@@ -25,7 +25,8 @@ import org.springframework.context.annotation.Configuration;
                         - User and membership management
                         - Chit group lifecycle and auctions
                         - Loans, ledgers, and payments
-                        - Notifications, reporting, and integrations for the React client
+                        - Group media (Poster area) and Voting/Polling
+                        - Notifications, reporting, and Accountant audit flows
                         """,
                 contact = @Contact(
                         name = "Chit Fund Platform",
