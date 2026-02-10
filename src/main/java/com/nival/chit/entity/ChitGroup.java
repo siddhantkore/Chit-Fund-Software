@@ -22,6 +22,7 @@ public class ChitGroup {
     @Setter(AccessLevel.NONE)
     private long id;
 
+
     @Column(unique = true, nullable = false, updatable = false)
     private String groupCode;
 
@@ -50,12 +51,29 @@ public class ChitGroup {
     @JoinColumn(name = "fund_id")
     private Funds fundId;
 
+    /**
+     * The memberships field represents the list of memberships associated with this chit group.
+     * It is a one-to-many relationship, where one chit group can have multiple memberships.
+     * The cascade type ALL ensures that any changes to the chit group will also affect the associated memberships,
+     * and orphanRemoval = true ensures that if a membership is removed from the chit group, it will also be deleted from the database.
+     * This field allows us to easily access all the members who are part of this chit group and manage their membership details effectively.
+     */
     @OneToMany(mappedBy = "chitGroup", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Membership> memberships;
 
+    /**
+     * The auctions field represents the list of auctions associated with this chit group.
+     * It is a one-to-many relationship, where one chit group can have multiple auctions.
+     * The cascade type ALL ensures that any changes to the chit group will also affect the associated auctions,
+     * and orphanRemoval = true ensures that if an auction is removed from the chit group, it will also be deleted from the database.
+     * This field allows us to easily access all the auctions that are part of this chit group and manage their details effectively.
+     */
     @OneToMany(mappedBy = "chitGroup", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Auction> auction;
 
+    /**
+     * 
+     */
     @OneToMany(mappedBy = "chitGroup", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<MemberLoan> memberLoan;
 
