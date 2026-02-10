@@ -109,10 +109,29 @@ public class PaymentsService {
         return convertToDTO(payment);
     }
 
+    @Transactional
+    public PaymentDTO verifyPayment(Long paymentId, Long accountantId) {
+        Payments payment = paymentsRepository.findById(paymentId)
+                .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
+        
+        User accountant = userRepository.findById(accountantId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + accountantId));
+
+        payment.setVerified(true);
+        payment.setVerifiedBy(accountant);
+        payment.setVerifiedAt(LocalDateTime.now());
+        payment.setStatus("COMPLETED"); // Auto-complete on verification if needed
+
+        payment = paymentsRepository.save(payment);
+        log.info("Payment {} verified by accountant {}", paymentId, accountantId);
+
+        return convertToDTO(payment);
+    }
+
     /**
      * Convert Payments entity to PaymentDTO.
      */
-    private PaymentDTO convertToDTO(Payments payment) {
+    public PaymentDTO convertToDTO(Payments payment) {
         return PaymentDTO.builder()
                 .id(payment.getId())
                 .month(payment.getMonth())
@@ -124,6 +143,10 @@ public class PaymentsService {
                 .userName(payment.getUser().getName())
                 .chitGroupId(payment.getChitGroup().getId())
                 .chitGroupName(payment.getChitGroup().getName())
+                .verified(payment.isVerified())
+                .verifiedByUserId(payment.getVerifiedBy() != null ? payment.getVerifiedBy().getId() : null)
+                .verifiedByUserName(payment.getVerifiedBy() != null ? payment.getVerifiedBy().getName() : null)
+                .verifiedAt(payment.getVerifiedAt())
                 .createdAt(payment.getCreatedAt())
                 .updatedAt(payment.getUpdatedAt())
                 .build();

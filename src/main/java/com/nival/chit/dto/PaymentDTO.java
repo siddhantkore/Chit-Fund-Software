@@ -25,6 +25,10 @@ public class PaymentDTO {
     private String userName;
     private Long chitGroupId;
     private String chitGroupName;
+    private boolean verified;
+    private Long verifiedByUserId;
+    private String verifiedByUserName;
+    private LocalDateTime verifiedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

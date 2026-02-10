@@ -62,6 +62,17 @@ public class PaymentsController {
         return ResponseEntity.status(HttpStatus.CREATED).body(payment);
     }
 
+    @PostMapping("/{paymentId}/verify")
+    @Operation(
+        summary = "Verify payment (Accountant/Admin role)",
+        description = "Marks a payment as verified. Ideal for the Accountant flow to audit member contributions."
+    )
+    public ResponseEntity<PaymentDTO> verifyPayment(
+            @PathVariable Long paymentId,
+            @RequestParam Long accountantId) {
+        return ResponseEntity.ok(paymentsService.verifyPayment(paymentId, accountantId));
+    }
+
     /**
      * Get all payments for a user in a specific group.
      * 

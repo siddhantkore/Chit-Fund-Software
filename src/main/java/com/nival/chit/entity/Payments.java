@@ -76,6 +76,14 @@ public class Payments {
     @JoinColumn(name = "chit_group_id", nullable = false)
     private ChitGroup chitGroup;
 
+    private boolean verified;
+
+    @ManyToOne
+    @JoinColumn(name = "verified_by")
+    private User verifiedBy;
+
+    private LocalDateTime verifiedAt;
+
     @Column(name = "created_at", updatable = false, nullable = false)
     @CreatedDate
     private LocalDateTime createdAt;
