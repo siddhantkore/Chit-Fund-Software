@@ -37,28 +37,33 @@ public class UserService {
      */
     @Transactional
     public UserDTO createUser(CreateUserDTO createDTO) {
-        // Check if username already exists
-        if (userRepository.findByUsername(createDTO.getUsername()).isPresent()) {
-            throw new IllegalArgumentException("Username already exists: " + createDTO.getUsername());
+        try {
+            // Check if username already exists
+            if (userRepository.findByUsername(createDTO.getUsername()).isPresent()) {
+                throw new IllegalArgumentException("Username already exists: " + createDTO.getUsername());
+            }
+
+            // Check if email already exists
+            if (userRepository.findByEmail(createDTO.getEmail()).isPresent()) {
+                throw new IllegalArgumentException("Email already exists: " + createDTO.getEmail());
+            }
+
+            User user = new User();
+            user.setName(createDTO.getName());
+            user.setUsername(createDTO.getUsername());
+            user.setPhone(createDTO.getPhone());
+            user.setEmail(createDTO.getEmail());
+            user.setPassword(passwordEncoder.encode(createDTO.getPassword()));
+            user.setRole(createDTO.getRole() != null ? createDTO.getRole() : UserRoles.MEMBER);
+
+            user = userRepository.save(user);
+            log.info("User created: {}", user.getUsername());
+
+            return convertToDTO(user);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-
-        // Check if email already exists
-        if (userRepository.findByEmail(createDTO.getEmail()).isPresent()) {
-            throw new IllegalArgumentException("Email already exists: " + createDTO.getEmail());
-        }
-
-        User user = new User();
-        user.setName(createDTO.getName());
-        user.setUsername(createDTO.getUsername());
-        user.setPhone(createDTO.getPhone());
-        user.setEmail(createDTO.getEmail());
-        user.setPassword(passwordEncoder.encode(createDTO.getPassword()));
-        user.setRole(createDTO.getRole() != null ? createDTO.getRole() : UserRoles.MEMBER);
-
-        user = userRepository.save(user);
-        log.info("User created: {}", user.getUsername());
-
-        return convertToDTO(user);
+        return null;
     }
 
     /**
