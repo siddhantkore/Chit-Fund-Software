@@ -32,7 +32,7 @@
 	</developers>
 	
 	<scm>
-		<connection/>
+		<connection></connection>
 		<developerConnection/>
 		<tag/>
 		<url/>

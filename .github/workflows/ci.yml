@@ -70,17 +70,3 @@ jobs:
           echo "author=$(git log -1 --pretty=format:'%an')" >> $GITHUB_OUTPUT
           echo "message=$(git log -1 --pretty=format:'%s')" >> $GITHUB_OUTPUT
           echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
-      - name: Send email notification (always)
-        if: always()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.SMTP_HOST }}
-          server_port: ${{ secrets.SMTP_PORT }}
-          username: ${{ secrets.SMTP_USERNAME }}
-          password: ${{ secrets.SMTP_PASSWORD }}
-          secure: true
-          subject: 'Build ${{ job.status }}: ${{ github.repository }} @ ${{ steps.commit_info.outputs.sha }}'
-          body: 'Build status: ${{ job.status }}\nRepository: ${{ github.repository }}\nBranch: ${{ github.ref }}\nCommit: ${{ steps.commit_info.outputs.sha }}\nCommit message: ${{ steps.commit_info.outputs.message }}\nCommit author: ${{ steps.commit_info.outputs.author }}\nRun URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
-          to: ${{ secrets.RECIPIENT_EMAIL }}
-          from: ${{ secrets.SENDER_EMAIL }}
