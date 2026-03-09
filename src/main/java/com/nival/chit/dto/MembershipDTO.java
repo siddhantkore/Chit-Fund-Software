@@ -23,6 +23,10 @@ public class MembershipDTO {
     private Long chitGroupId;
     private String chitGroupName;
     private String chitGroupCode;
+    private Double monthlyAmount;
+    private Integer duration;
+    private Integer totalMembers;
+    private LocalDateTime startDate;
     private LocalDateTime joinDate;
     private UserStatus status;
     private UserRoles role;
