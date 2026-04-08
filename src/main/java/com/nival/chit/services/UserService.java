@@ -40,11 +40,13 @@ public class UserService {
         try {
             // Check if username already exists
             if (userRepository.findByUsername(createDTO.getUsername()).isPresent()) {
+                log.warn("Registration failed. Username already exists: {}", createDTO.getUsername());
                 throw new IllegalArgumentException("Username already exists: " + createDTO.getUsername());
             }
 
             // Check if email already exists
             if (userRepository.findByEmail(createDTO.getEmail()).isPresent()) {
+                log.warn("Registration failed. Email already exists: {}", createDTO.getEmail());
                 throw new IllegalArgumentException("Email already exists: " + createDTO.getEmail());
             }
 
@@ -115,7 +117,10 @@ public class UserService {
     @Transactional
     public UserDTO updateUser(Long userId, UpdateUserDTO updateDTO) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+                .orElseThrow(() -> {
+                    log.warn("Attempted to update non-existent user: {}", userId);
+                    return new IllegalArgumentException("User not found: " + userId);
+                });
 
         if (updateDTO.getName() != null) {
             user.setName(updateDTO.getName());
@@ -128,6 +133,7 @@ public class UserService {
             userRepository.findByEmail(updateDTO.getEmail())
                     .ifPresent(existingUser -> {
                         if (existingUser.getId() != userId) {
+                            log.warn("Update failed. Email already exists: {}", updateDTO.getEmail());
                             throw new IllegalArgumentException("Email already exists: " + updateDTO.getEmail());
                         }
                     });
@@ -151,10 +157,14 @@ public class UserService {
     @Transactional
     public boolean changePassword(Long userId, ChangePasswordDTO changePasswordDTO) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+                .orElseThrow(() -> {
+                    log.warn("Attempted to change password for non-existent user: {}", userId);
+                    return new IllegalArgumentException("User not found: " + userId);
+                });
 
         // Verify current password
         if (!passwordEncoder.matches(changePasswordDTO.getCurrentPassword(), user.getPassword())) {
+            log.warn("Password change failed for user: {} - Incorrect current password", user.getUsername());
             throw new IllegalArgumentException("Current password is incorrect");
         }
 
@@ -175,7 +185,10 @@ public class UserService {
     @Transactional
     public void deleteUser(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+                .orElseThrow(() -> {
+                    log.warn("Attempted to delete non-existent user: {}", userId);
+                    return new IllegalArgumentException("User not found: " + userId);
+                });
 
         userRepository.delete(user);
         log.info("User deleted: {}", user.getUsername());

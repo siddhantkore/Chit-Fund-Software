@@ -1,14 +1,19 @@
 package com.nival.chit.config;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.core.Ordered;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
 
 import java.util.Arrays;
+import java.util.List;
 
 @Configuration
-public class CorsConfig implements WebMvcConfigurer {
+public class CorsConfig {
 
     @Value("${app.cors.allowed-origins:*}")
     private String allowedOrigins;
@@ -19,36 +24,49 @@ public class CorsConfig implements WebMvcConfigurer {
     @Value("${app.cors.allowed-headers:*}")
     private String allowedHeaders;
 
-    @Value("${app.cors.allow-credentials:false}")
+    @Value("${app.cors.allow-credentials:true}")
     private boolean allowCredentials;
 
-    @Override
-    public void addCorsMappings(CorsRegistry registry){
-        String[] origins = Arrays.stream(allowedOrigins.split(","))
-                                 .map(String::trim)
-                                 .filter(s -> !s.isEmpty())
-                                 .toArray(String[]::new);
-        String[] methods = Arrays.stream(allowedMethods.split(","))
-                                 .map(String::trim)
-                                 .filter(s -> !s.isEmpty())
-                                 .toArray(String[]::new);
-        String[] headers = Arrays.stream(allowedHeaders.split(","))
-                                 .map(String::trim)
-                                 .filter(s -> !s.isEmpty())
-                                 .toArray(String[]::new);
+    @Bean
+    public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        
+        config.setAllowCredentials(allowCredentials);
 
-        var reg = registry.addMapping("/**")
-                          .allowedMethods(methods)
-                          .allowedHeaders(headers)
-                          .allowCredentials(allowCredentials);
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
 
-        // If explicit wildcard is used, prefer origin patterns (supports "*")
-        if (origins.length == 1 && "*".equals(origins[0])) {
-            reg.allowedOriginPatterns("*");
-        } else if (origins.length > 0) {
-            reg.allowedOrigins(origins);
+        if (origins.size() == 1 && "*".equals(origins.get(0))) {
+            config.setAllowedOriginPatterns(List.of("*"));
+        } else if (!origins.isEmpty()) {
+            config.setAllowedOrigins(origins);
         } else {
-            reg.allowedOriginPatterns("*");
+            config.setAllowedOriginPatterns(List.of("*"));
         }
+
+        List<String> methods = Arrays.stream(allowedMethods.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        config.setAllowedMethods(methods);
+
+        List<String> headers = Arrays.stream(allowedHeaders.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        config.setAllowedHeaders(headers);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+
+    @Bean
+    public FilterRegistrationBean<CorsFilter> customCorsFilter(org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource) {
+        FilterRegistrationBean<CorsFilter> bean = new FilterRegistrationBean<>(new CorsFilter(corsConfigurationSource));
+        bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return bean;
     }
 }

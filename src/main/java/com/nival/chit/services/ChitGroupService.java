@@ -163,7 +163,10 @@ public class ChitGroupService {
     @Transactional
     public ChitGroupDTO updateChitGroup(Long groupId, CreateChitGroupDTO updateDTO) {
         ChitGroup group = chitGroupRepository.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException("Chit group not found: " + groupId));
+                .orElseThrow(() -> {
+                    log.warn("Attempted to update non-existent ChitGroup: {}", groupId);
+                    return new IllegalArgumentException("Chit group not found: " + groupId);
+                });
 
         if (updateDTO.getName() != null) {
             group.setName(updateDTO.getName());
@@ -198,7 +201,10 @@ public class ChitGroupService {
     @Transactional
     public ChitGroupDTO updateChitGroupStatus(Long groupId, ChitGroupStatus status) {
         ChitGroup group = chitGroupRepository.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException("Chit group not found: " + groupId));
+                .orElseThrow(() -> {
+                    log.warn("Attempted to update status of non-existent ChitGroup: {}", groupId);
+                    return new IllegalArgumentException("Chit group not found: " + groupId);
+                });
 
         group.setStatus(status);
         group = chitGroupRepository.save(group);
@@ -217,7 +223,10 @@ public class ChitGroupService {
     @Transactional
     public void deleteChitGroup(Long groupId) {
         ChitGroup group = chitGroupRepository.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException("Chit group not found: " + groupId));
+                .orElseThrow(() -> {
+                    log.warn("Attempted to delete non-existent ChitGroup: {}", groupId);
+                    return new IllegalArgumentException("Chit group not found: " + groupId);
+                });
 
         chitGroupRepository.delete(group);
         log.info("Chit group deleted: {}", group.getName());

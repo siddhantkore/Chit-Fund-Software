@@ -41,10 +41,16 @@ public class GroupChatService {
     @Transactional
     public GroupChatMessageDTO sendMessage(Long chitGroupId, Long senderId, String content) {
         ChitGroup chitGroup = chitGroupRepository.findById(chitGroupId)
-                .orElseThrow(() -> new IllegalArgumentException("Chit group not found"));
+                .orElseThrow(() -> {
+                    log.warn("Attempted to send message to non-existent group: {}", chitGroupId);
+                    return new IllegalArgumentException("Chit group not found");
+                });
 
         User sender = userRepository.findById(senderId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> {
+                    log.warn("Attempted to send message by non-existent user: {}", senderId);
+                    return new IllegalArgumentException("User not found");
+                });
 
         GroupChatMessage message = new GroupChatMessage();
         message.setChitGroup(chitGroup);
