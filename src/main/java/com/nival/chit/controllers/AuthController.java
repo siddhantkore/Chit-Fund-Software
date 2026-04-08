@@ -1,5 +1,6 @@
 package com.nival.chit.controllers;
 
+import com.nival.chit.dto.LoginRequestDTO;
 import com.nival.chit.dto.UserDTO;
 import com.nival.chit.services.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -10,10 +11,14 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -28,6 +33,36 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final UserService userService;
+    private final AuthenticationManager authenticationManager;
+
+    /**
+     * Validates the supplied credentials and returns the authenticated user profile.
+     *
+     * @param loginRequest the username/password payload
+     * @return the authenticated user DTO
+     */
+    @PostMapping("/login")
+    @Operation(
+        summary = "Validate user credentials",
+        description = "Authenticates the supplied username and password and returns the matching user profile."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Credentials accepted",
+            content = @Content(schema = @Schema(implementation = UserDTO.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Invalid credentials")
+    })
+    public ResponseEntity<UserDTO> login(@RequestBody LoginRequestDTO loginRequest) {
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword())
+        );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        UserDTO user = userService.getUserByUsername(authentication.getName());
+        return ResponseEntity.ok(user);
+    }
 
     /**
      * Get the currently authenticated user's profile based on the Basic Auth token.
