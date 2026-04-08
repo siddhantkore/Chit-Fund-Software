@@ -81,10 +81,8 @@ public class MembershipController {
     })
     public ResponseEntity<MembershipDTO> joinByCode(
             @Parameter(description = "The unique group code", required = true)
-            @RequestParam String groupCode,
-            @Parameter(description = "ID of the user joining", required = true)
-            @RequestParam Long userId) {
-        MembershipDTO membership = chitGroupMemberOperationsService.joinGroupByCode(groupCode, userId);
+            @RequestParam String groupCode) {
+        MembershipDTO membership = chitGroupMemberOperationsService.joinGroupByCode(groupCode);
         return ResponseEntity.ok(membership);
     }
 }

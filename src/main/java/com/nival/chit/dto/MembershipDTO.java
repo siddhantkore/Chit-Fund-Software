@@ -1,6 +1,6 @@
 package com.nival.chit.dto;
 
-import com.nival.chit.enums.UserRoles;
+import com.nival.chit.enums.GroupRole;
 import com.nival.chit.enums.UserStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -29,6 +29,5 @@ public class MembershipDTO {
     private LocalDateTime startDate;
     private LocalDateTime joinDate;
     private UserStatus status;
-    private UserRoles role;
+    private GroupRole role;
 }
-

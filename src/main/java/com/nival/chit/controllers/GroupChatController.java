@@ -56,11 +56,9 @@ public class GroupChatController {
     public ResponseEntity<GroupChatMessageDTO> sendMessage(
             @Parameter(description = "ID of the chit group", required = true)
             @PathVariable Long groupId,
-            @Parameter(description = "ID of the sending user", required = true)
-            @RequestParam Long senderId,
             @RequestBody SendMessageRequest request
     ) {
-        GroupChatMessageDTO message = groupChatService.sendMessage(groupId, senderId, request.content());
+        GroupChatMessageDTO message = groupChatService.sendMessage(groupId, request.content());
         
         // Broadcast the new message to active websocket subscribers in this group
         messagingTemplate.convertAndSend("/topic/group/" + groupId, message);
@@ -130,5 +128,4 @@ public class GroupChatController {
      */
     public record SendMessageRequest(String content) { }
 }
-
 

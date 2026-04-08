@@ -3,11 +3,10 @@ package com.nival.chit.services;
 import com.nival.chit.dto.GroupChatMessageDTO;
 import com.nival.chit.entity.ChitGroup;
 import com.nival.chit.entity.GroupChatMessage;
-import com.nival.chit.entity.Membership;
 import com.nival.chit.entity.User;
 import com.nival.chit.repository.ChitGroupRepository;
 import com.nival.chit.repository.GroupChatMessageRepository;
-import com.nival.chit.repository.UserRepository;
+import com.nival.chit.security.AccessControlService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,7 +25,7 @@ public class GroupChatService {
 
     private final GroupChatMessageRepository groupChatMessageRepository;
     private final ChitGroupRepository chitGroupRepository;
-    private final UserRepository userRepository;
+    private final AccessControlService accessControlService;
 
     /**
      * Send a chat message in a chit group's private chat.
@@ -39,17 +38,13 @@ public class GroupChatService {
      * @return saved message DTO
      */
     @Transactional
-    public GroupChatMessageDTO sendMessage(Long chitGroupId, Long senderId, String content) {
+    public GroupChatMessageDTO sendMessage(Long chitGroupId, String content) {
+        User sender = accessControlService.getCurrentUser();
+        accessControlService.requireActiveGroupMembership(chitGroupId);
         ChitGroup chitGroup = chitGroupRepository.findById(chitGroupId)
                 .orElseThrow(() -> {
                     log.warn("Attempted to send message to non-existent group: {}", chitGroupId);
                     return new IllegalArgumentException("Chit group not found");
-                });
-
-        User sender = userRepository.findById(senderId)
-                .orElseThrow(() -> {
-                    log.warn("Attempted to send message by non-existent user: {}", senderId);
-                    return new IllegalArgumentException("User not found");
                 });
 
         GroupChatMessage message = new GroupChatMessage();
@@ -59,7 +54,7 @@ public class GroupChatService {
         message.setMessageType("TEXT");
 
         GroupChatMessage saved = groupChatMessageRepository.save(message);
-        log.info("Chat message sent in group {} by user {}", chitGroupId, senderId);
+        log.info("Chat message sent in group {} by user {}", chitGroupId, sender.getId());
 
         return toDto(saved);
     }
@@ -72,6 +67,7 @@ public class GroupChatService {
      */
     @Transactional(readOnly = true)
     public List<GroupChatMessageDTO> getMessagesForGroup(Long chitGroupId) {
+        accessControlService.requireActiveGroupMembership(chitGroupId);
         List<GroupChatMessage> messages =
                 groupChatMessageRepository.findByChitGroupIdOrderByCreatedAtAsc(chitGroupId);
 
@@ -90,6 +86,7 @@ public class GroupChatService {
      */
     @Transactional(readOnly = true)
     public List<GroupChatMessageDTO> getRecentMessages(Long chitGroupId, Long lastMessageId) {
+        accessControlService.requireActiveGroupMembership(chitGroupId);
         List<GroupChatMessage> messages =
                 groupChatMessageRepository.findRecentMessages(chitGroupId, lastMessageId);
 
@@ -110,5 +107,4 @@ public class GroupChatService {
                 .build();
     }
 }
-
 

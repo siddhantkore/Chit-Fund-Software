@@ -3,6 +3,7 @@ package com.nival.chit.services;
 import com.nival.chit.dto.LedgerDTO;
 import com.nival.chit.entity.Ledger;
 import com.nival.chit.repository.LedgerRepository;
+import com.nival.chit.security.AccessControlService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 public class LedgerService {
 
     private final LedgerRepository ledgerRepository;
+    private final AccessControlService accessControlService;
 
     /**
      * Get all ledger entries.
@@ -29,6 +31,7 @@ public class LedgerService {
      */
     @Transactional(readOnly = true)
     public List<LedgerDTO> getAllLedgerRecords() {
+        accessControlService.requireSaasAdmin();
         return ledgerRepository.findAll().stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
@@ -42,6 +45,7 @@ public class LedgerService {
      */
     @Transactional(readOnly = true)
     public List<LedgerDTO> getLedgerByGroup(Long groupId) {
+        accessControlService.requireGroupAdmin(groupId);
         List<Ledger> entries = ledgerRepository.findByChitGroupId(groupId);
         return entries.stream()
                 .map(this::convertToDTO)
@@ -56,6 +60,7 @@ public class LedgerService {
      */
     @Transactional(readOnly = true)
     public List<LedgerDTO> getLedgerByUser(Long userId) {
+        accessControlService.requireSelfOrSaasAdmin(userId);
         List<Ledger> entries = ledgerRepository.findByUserId(userId);
         return entries.stream()
                 .map(this::convertToDTO)
@@ -71,6 +76,7 @@ public class LedgerService {
      */
     @Transactional(readOnly = true)
     public List<LedgerDTO> getLedgerByUserAndGroup(Long userId, Long groupId) {
+        accessControlService.requireSelfOrGroupAdmin(userId, groupId);
         List<Ledger> entries = ledgerRepository.findByUserIdAndChitGroupId(userId, groupId);
         return entries.stream()
                 .map(this::convertToDTO)
@@ -86,7 +92,10 @@ public class LedgerService {
     @Transactional(readOnly = true)
     public LedgerDTO getLedgerById(Long ledgerId) {
         return ledgerRepository.findById(ledgerId)
-                .map(this::convertToDTO)
+                .map(ledger -> {
+                    accessControlService.requireSelfOrGroupAdmin(ledger.getUser().getId(), ledger.getChitGroup().getId());
+                    return convertToDTO(ledger);
+                })
                 .orElse(null);
     }
 

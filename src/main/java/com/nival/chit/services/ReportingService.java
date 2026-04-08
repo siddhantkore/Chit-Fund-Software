@@ -6,6 +6,7 @@ import com.nival.chit.dto.MemberGroupFinancialSummaryDTO;
 import com.nival.chit.dto.PaymentDTO;
 import com.nival.chit.entity.*;
 import com.nival.chit.repository.*;
+import com.nival.chit.security.AccessControlService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,12 +35,14 @@ public class ReportingService {
     private final MembershipRepository membershipRepository;
     private final MemberLoanService memberLoanService;
     private final PaymentsService paymentsService;
+    private final AccessControlService accessControlService;
 
     /**
      * Get an audit report for accountants showing unverified payments.
      */
     @Transactional(readOnly = true)
     public AccountantAuditReportDTO getAccountantAuditReport(Long groupId) {
+        accessControlService.requireGroupAdmin(groupId);
         ChitGroup group = chitGroupRepository.findById(groupId)
                 .orElseThrow(() -> new IllegalArgumentException("Chit group not found"));
 
@@ -69,6 +72,7 @@ public class ReportingService {
      */
     @Transactional(readOnly = true)
     public GroupFinancialSummaryDTO getGroupSummary(Long groupId) {
+        accessControlService.requireActiveGroupMembership(groupId);
         ChitGroup group = chitGroupRepository.findById(groupId)
                 .orElseThrow(() -> new IllegalArgumentException("Chit group not found"));
 
@@ -115,10 +119,11 @@ public class ReportingService {
      */
     @Transactional(readOnly = true)
     public List<MemberGroupFinancialSummaryDTO> getMemberGroupSummaries(Long userId) {
+        accessControlService.requireSelfOrSaasAdmin(userId);
         LocalDate today = LocalDate.now();
         LocalDateTime endOfToday = today.atTime(23, 59, 59);
 
-        List<Membership> memberships = membershipRepository.findByUserId(userId);
+        List<Membership> memberships = membershipRepository.findByUserIdAndStatus(userId, com.nival.chit.enums.UserStatus.ACTIVE);
 
         return memberships.stream()
                 .map(membership -> {
@@ -160,5 +165,4 @@ public class ReportingService {
                 .collect(Collectors.toList());
     }
 }
-
 

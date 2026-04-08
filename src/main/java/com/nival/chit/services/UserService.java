@@ -7,6 +7,7 @@ import com.nival.chit.dto.UserDTO;
 import com.nival.chit.entity.User;
 import com.nival.chit.enums.UserRoles;
 import com.nival.chit.repository.UserRepository;
+import com.nival.chit.security.AccessControlService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -27,6 +28,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AccessControlService accessControlService;
 
     /**
      * Create a new user account.
@@ -76,6 +78,7 @@ public class UserService {
      */
     @Transactional(readOnly = true)
     public UserDTO getUserById(Long userId) {
+        accessControlService.requireSelfOrSaasAdmin(userId);
         return userRepository.findById(userId)
                 .map(this::convertToDTO)
                 .orElse(null);
@@ -89,9 +92,13 @@ public class UserService {
      */
     @Transactional(readOnly = true)
     public UserDTO getUserByUsername(String username) {
-        return userRepository.findByUsername(username)
+        UserDTO user = userRepository.findByUsername(username)
                 .map(this::convertToDTO)
                 .orElse(null);
+        if (user != null) {
+            accessControlService.requireSelfOrSaasAdmin(user.getId());
+        }
+        return user;
     }
 
     /**
@@ -101,7 +108,14 @@ public class UserService {
      */
     @Transactional(readOnly = true)
     public List<UserDTO> getAllUsers() {
-        return userRepository.findAll().stream()
+        List<User> users;
+        if (accessControlService.isSaasAdmin()) {
+            users = userRepository.findAll();
+        } else {
+            users = userRepository.findVisibleUsersForMember(accessControlService.getCurrentUser().getId());
+        }
+
+        return users.stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
@@ -116,6 +130,7 @@ public class UserService {
      */
     @Transactional
     public UserDTO updateUser(Long userId, UpdateUserDTO updateDTO) {
+        accessControlService.requireSelfOrSaasAdmin(userId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> {
                     log.warn("Attempted to update non-existent user: {}", userId);
@@ -156,6 +171,7 @@ public class UserService {
      */
     @Transactional
     public boolean changePassword(Long userId, ChangePasswordDTO changePasswordDTO) {
+        accessControlService.requireSelfOrSaasAdmin(userId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> {
                     log.warn("Attempted to change password for non-existent user: {}", userId);
@@ -184,6 +200,7 @@ public class UserService {
      */
     @Transactional
     public void deleteUser(Long userId) {
+        accessControlService.requireSelfOrSaasAdmin(userId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> {
                     log.warn("Attempted to delete non-existent user: {}", userId);
@@ -210,4 +227,3 @@ public class UserService {
                 .build();
     }
 }
-

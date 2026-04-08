@@ -59,10 +59,8 @@ public class ChitGroupController {
         @ApiResponse(responseCode = "400", description = "Invalid input data")
     })
     public ResponseEntity<ChitGroupDTO> createChitGroup(
-            @RequestBody CreateChitGroupDTO createDTO,
-            @Parameter(description = "ID of the user who will be the group admin", required = true)
-            @RequestParam Long adminId) {
-        ChitGroupDTO group = chitGroupService.createChitGroup(createDTO, adminId);
+            @RequestBody CreateChitGroupDTO createDTO) {
+        ChitGroupDTO group = chitGroupService.createChitGroup(createDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(group);
     }
 
