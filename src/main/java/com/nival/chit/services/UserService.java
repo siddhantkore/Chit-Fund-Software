@@ -7,6 +7,7 @@ import com.nival.chit.dto.UserDTO;
 import com.nival.chit.entity.User;
 import com.nival.chit.enums.UserRoles;
 import com.nival.chit.repository.UserRepository;
+import com.nival.chit.security.AccessControlService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -27,6 +28,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AccessControlService accessControlService;
 
     /**
      * Create a new user account.
@@ -40,11 +42,13 @@ public class UserService {
         try {
             // Check if username already exists
             if (userRepository.findByUsername(createDTO.getUsername()).isPresent()) {
+                log.warn("Registration failed. Username already exists: {}", createDTO.getUsername());
                 throw new IllegalArgumentException("Username already exists: " + createDTO.getUsername());
             }
 
             // Check if email already exists
             if (userRepository.findByEmail(createDTO.getEmail()).isPresent()) {
+                log.warn("Registration failed. Email already exists: {}", createDTO.getEmail());
                 throw new IllegalArgumentException("Email already exists: " + createDTO.getEmail());
             }
 
@@ -74,6 +78,7 @@ public class UserService {
      */
     @Transactional(readOnly = true)
     public UserDTO getUserById(Long userId) {
+        accessControlService.requireSelfOrSaasAdmin(userId);
         return userRepository.findById(userId)
                 .map(this::convertToDTO)
                 .orElse(null);
@@ -87,9 +92,13 @@ public class UserService {
      */
     @Transactional(readOnly = true)
     public UserDTO getUserByUsername(String username) {
-        return userRepository.findByUsername(username)
+        UserDTO user = userRepository.findByUsername(username)
                 .map(this::convertToDTO)
                 .orElse(null);
+        if (user != null) {
+            accessControlService.requireSelfOrSaasAdmin(user.getId());
+        }
+        return user;
     }
 
     /**
@@ -99,7 +108,14 @@ public class UserService {
      */
     @Transactional(readOnly = true)
     public List<UserDTO> getAllUsers() {
-        return userRepository.findAll().stream()
+        List<User> users;
+        if (accessControlService.isSaasAdmin()) {
+            users = userRepository.findAll();
+        } else {
+            users = userRepository.findVisibleUsersForMember(accessControlService.getCurrentUser().getId());
+        }
+
+        return users.stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
@@ -114,8 +130,12 @@ public class UserService {
      */
     @Transactional
     public UserDTO updateUser(Long userId, UpdateUserDTO updateDTO) {
+        accessControlService.requireSelfOrSaasAdmin(userId);
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+                .orElseThrow(() -> {
+                    log.warn("Attempted to update non-existent user: {}", userId);
+                    return new IllegalArgumentException("User not found: " + userId);
+                });
 
         if (updateDTO.getName() != null) {
             user.setName(updateDTO.getName());
@@ -128,6 +148,7 @@ public class UserService {
             userRepository.findByEmail(updateDTO.getEmail())
                     .ifPresent(existingUser -> {
                         if (existingUser.getId() != userId) {
+                            log.warn("Update failed. Email already exists: {}", updateDTO.getEmail());
                             throw new IllegalArgumentException("Email already exists: " + updateDTO.getEmail());
                         }
                     });
@@ -150,11 +171,16 @@ public class UserService {
      */
     @Transactional
     public boolean changePassword(Long userId, ChangePasswordDTO changePasswordDTO) {
+        accessControlService.requireSelfOrSaasAdmin(userId);
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+                .orElseThrow(() -> {
+                    log.warn("Attempted to change password for non-existent user: {}", userId);
+                    return new IllegalArgumentException("User not found: " + userId);
+                });
 
         // Verify current password
         if (!passwordEncoder.matches(changePasswordDTO.getCurrentPassword(), user.getPassword())) {
+            log.warn("Password change failed for user: {} - Incorrect current password", user.getUsername());
             throw new IllegalArgumentException("Current password is incorrect");
         }
 
@@ -174,8 +200,12 @@ public class UserService {
      */
     @Transactional
     public void deleteUser(Long userId) {
+        accessControlService.requireSelfOrSaasAdmin(userId);
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+                .orElseThrow(() -> {
+                    log.warn("Attempted to delete non-existent user: {}", userId);
+                    return new IllegalArgumentException("User not found: " + userId);
+                });
 
         userRepository.delete(user);
         log.info("User deleted: {}", user.getUsername());
@@ -197,4 +227,3 @@ public class UserService {
                 .build();
     }
 }
-

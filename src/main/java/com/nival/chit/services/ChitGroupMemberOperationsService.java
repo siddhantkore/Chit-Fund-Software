@@ -4,11 +4,12 @@ import com.nival.chit.dto.MembershipDTO;
 import com.nival.chit.entity.ChitGroup;
 import com.nival.chit.entity.Membership;
 import com.nival.chit.entity.User;
-import com.nival.chit.enums.UserRoles;
+import com.nival.chit.enums.GroupRole;
 import com.nival.chit.enums.UserStatus;
 import com.nival.chit.repository.ChitGroupRepository;
 import com.nival.chit.repository.MembershipRepository;
 import com.nival.chit.repository.UserRepository;
+import com.nival.chit.security.AccessControlService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,8 @@ public class ChitGroupMemberOperationsService {
     private final MembershipRepository membershipRepository;
     private final ChitGroupRepository chitGroupRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
+    private final AccessControlService accessControlService;
 
     /**
      * Add a member to a chit group.
@@ -40,6 +43,7 @@ public class ChitGroupMemberOperationsService {
      */
     @Transactional
     public MembershipDTO addMemberToGroup(Long groupId, Long userId) {
+        accessControlService.requireGroupAdmin(groupId);
         ChitGroup group = chitGroupRepository.findById(groupId)
                 .orElseThrow(() -> new IllegalArgumentException("Chit group not found: " + groupId));
 
@@ -61,7 +65,7 @@ public class ChitGroupMemberOperationsService {
         membership.setUser(user);
         membership.setChitGroup(group);
         membership.setStatus(UserStatus.ACTIVE);
-        membership.setRole(UserRoles.MEMBER); // Default role
+        membership.setRole(GroupRole.MEMBER);
 
         membership = membershipRepository.save(membership);
         log.info("User {} added to group {} as MEMBER", userId, groupId);
@@ -77,11 +81,41 @@ public class ChitGroupMemberOperationsService {
      * @return the created membership DTO
      */
     @Transactional
-    public MembershipDTO joinGroupByCode(String groupCode, Long userId) {
+    public MembershipDTO joinGroupByCode(String groupCode) {
+        User currentUser = accessControlService.getCurrentUser();
         ChitGroup group = chitGroupRepository.findByGroupCode(groupCode)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid group code: " + groupCode));
+        Long userId = currentUser.getId();
 
-        return addMemberToGroup(group.getId(), userId);
+        Membership existingMembership = membershipRepository.findByUserIdAndGroupId(userId, group.getId()).orElse(null);
+        if (existingMembership != null) {
+            if (existingMembership.getStatus() == UserStatus.PENDING) {
+                throw new IllegalArgumentException("A join request for this group is already pending");
+            }
+            throw new IllegalArgumentException("User is already associated with this group");
+        }
+
+        long activeMemberCount = membershipRepository.findByGroupIdAndStatus(group.getId(), UserStatus.ACTIVE).size();
+        if (activeMemberCount >= group.getTotalMembers()) {
+            throw new IllegalArgumentException("Chit group has reached maximum member limit");
+        }
+
+        Membership membership = new Membership();
+        membership.setUser(currentUser);
+        membership.setChitGroup(group);
+        membership.setStatus(UserStatus.PENDING);
+        membership.setRole(GroupRole.MEMBER);
+        membership = membershipRepository.save(membership);
+
+        membershipRepository.findByGroupIdAndRoleAndStatus(group.getId(), GroupRole.ADMIN, UserStatus.ACTIVE)
+                .forEach(adminMembership -> notificationService.createNotification(
+                        adminMembership.getUser().getId(),
+                        "Join request from " + currentUser.getName() + " for group " + group.getName(),
+                        "JOIN_REQUEST"
+                ));
+
+        log.info("Join request created for user {} in group {}", userId, group.getId());
+        return convertToDTO(membership);
     }
 
     /**
@@ -93,6 +127,7 @@ public class ChitGroupMemberOperationsService {
      */
     @Transactional
     public void removeMemberFromGroup(Long groupId, Long userId) {
+        accessControlService.requireGroupAdmin(groupId);
         Membership membership = membershipRepository.findByUserIdAndGroupId(userId, groupId)
                 .orElseThrow(() -> new IllegalArgumentException("Membership not found"));
 
@@ -108,7 +143,13 @@ public class ChitGroupMemberOperationsService {
      */
     @Transactional(readOnly = true)
     public List<MembershipDTO> getGroupMembers(Long groupId) {
+        Membership viewerMembership = accessControlService.requireActiveGroupMembership(groupId);
         List<Membership> memberships = membershipRepository.findByGroupId(groupId);
+        if (viewerMembership != null && viewerMembership.getRole() != GroupRole.ADMIN) {
+            memberships = memberships.stream()
+                    .filter(membership -> membership.getStatus() == UserStatus.ACTIVE)
+                    .toList();
+        }
         return memberships.stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
@@ -122,6 +163,7 @@ public class ChitGroupMemberOperationsService {
      */
     @Transactional(readOnly = true)
     public List<MembershipDTO> getUserMemberships(Long userId) {
+        accessControlService.requireSelfOrSaasAdmin(userId);
         List<Membership> memberships = membershipRepository.findByUserId(userId);
         return memberships.stream()
                 .map(this::convertToDTO)
@@ -139,8 +181,17 @@ public class ChitGroupMemberOperationsService {
      */
     @Transactional
     public MembershipDTO updateMembershipStatus(Long groupId, Long userId, UserStatus status) {
+        accessControlService.requireGroupAdmin(groupId);
         Membership membership = membershipRepository.findByUserIdAndGroupId(userId, groupId)
                 .orElseThrow(() -> new IllegalArgumentException("Membership not found"));
+
+        if (status == UserStatus.ACTIVE && membership.getStatus() != UserStatus.ACTIVE) {
+            ChitGroup group = membership.getChitGroup();
+            long activeMemberCount = membershipRepository.findByGroupIdAndStatus(groupId, UserStatus.ACTIVE).size();
+            if (activeMemberCount >= group.getTotalMembers()) {
+                throw new IllegalArgumentException("Chit group has reached maximum member limit");
+            }
+        }
 
         membership.setStatus(status);
         membership = membershipRepository.save(membership);
@@ -160,6 +211,10 @@ public class ChitGroupMemberOperationsService {
                 .chitGroupId(membership.getChitGroup().getId())
                 .chitGroupName(membership.getChitGroup().getName())
                 .chitGroupCode(membership.getChitGroup().getGroupCode())
+                .monthlyAmount(membership.getChitGroup().getMonthlyAmount())
+                .duration(membership.getChitGroup().getDuration())
+                .totalMembers(membership.getChitGroup().getTotalMembers())
+                .startDate(membership.getChitGroup().getStartDate())
                 .joinDate(membership.getJoinDate())
                 .status(membership.getStatus())
                 .role(membership.getRole())

@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,6 +29,7 @@ import java.util.List;
 public class GroupChatController {
 
     private final GroupChatService groupChatService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     /**
      * Send a chat message in a chit group's private chat.
@@ -54,11 +56,13 @@ public class GroupChatController {
     public ResponseEntity<GroupChatMessageDTO> sendMessage(
             @Parameter(description = "ID of the chit group", required = true)
             @PathVariable Long groupId,
-            @Parameter(description = "ID of the sending user", required = true)
-            @RequestParam Long senderId,
             @RequestBody SendMessageRequest request
     ) {
-        GroupChatMessageDTO message = groupChatService.sendMessage(groupId, senderId, request.content());
+        GroupChatMessageDTO message = groupChatService.sendMessage(groupId, request.content());
+        
+        // Broadcast the new message to active websocket subscribers in this group
+        messagingTemplate.convertAndSend("/topic/group/" + groupId, message);
+        
         return ResponseEntity.ok(message);
     }
 
@@ -124,5 +128,4 @@ public class GroupChatController {
      */
     public record SendMessageRequest(String content) { }
 }
-
 

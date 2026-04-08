@@ -7,12 +7,12 @@ import com.nival.chit.entity.Funds;
 import com.nival.chit.entity.Membership;
 import com.nival.chit.entity.User;
 import com.nival.chit.enums.ChitGroupStatus;
-import com.nival.chit.enums.UserRoles;
+import com.nival.chit.enums.GroupRole;
 import com.nival.chit.enums.UserStatus;
 import com.nival.chit.repository.ChitGroupRepository;
 import com.nival.chit.repository.FundsRepository;
 import com.nival.chit.repository.MembershipRepository;
-import com.nival.chit.repository.UserRepository;
+import com.nival.chit.security.AccessControlService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,17 +34,17 @@ public class ChitGroupService {
     private final ChitGroupRepository chitGroupRepository;
     private final FundsRepository fundsRepository;
     private final MembershipRepository membershipRepository;
-    private final UserRepository userRepository;
+    private final AccessControlService accessControlService;
 
     /**
      * Create a new chit group with associated fund.
      *
      * @param createDTO the chit group creation data
-     * @param creatorUserId the user ID of the creator (who will be group admin)
      * @return the created chit group DTO
      */
     @Transactional
-    public ChitGroupDTO createChitGroup(CreateChitGroupDTO createDTO, Long creatorUserId) {
+    public ChitGroupDTO createChitGroup(CreateChitGroupDTO createDTO) {
+        User creator = accessControlService.getCurrentUser();
         ChitGroup group = new ChitGroup();
         group.setName(createDTO.getName());
         group.setDuration(createDTO.getDuration());
@@ -69,18 +69,13 @@ public class ChitGroupService {
         group = chitGroupRepository.save(group);
 
         // Auto-add creator as Admin of the group
-        if (creatorUserId != null) {
-            User creator = userRepository.findById(creatorUserId)
-                    .orElseThrow(() -> new IllegalArgumentException("Creator user not found: " + creatorUserId));
-            
-            Membership adminMembership = new Membership();
-            adminMembership.setUser(creator);
-            adminMembership.setChitGroup(group);
-            adminMembership.setRole(UserRoles.ADMIN);
-            adminMembership.setStatus(UserStatus.ACTIVE);
-            membershipRepository.save(adminMembership);
-            log.info("Auto-added creator {} as Admin for group {}", creatorUserId, group.getName());
-        }
+        Membership adminMembership = new Membership();
+        adminMembership.setUser(creator);
+        adminMembership.setChitGroup(group);
+        adminMembership.setRole(GroupRole.ADMIN);
+        adminMembership.setStatus(UserStatus.ACTIVE);
+        membershipRepository.save(adminMembership);
+        log.info("Auto-added creator {} as Admin for group {}", creator.getId(), group.getName());
 
         log.info("Chit group created: {} with code: {}", group.getName(), group.getGroupCode());
         return convertToDTO(group);
@@ -94,6 +89,7 @@ public class ChitGroupService {
      */
     @Transactional(readOnly = true)
     public ChitGroupDTO getChitGroupById(Long groupId) {
+        accessControlService.requireActiveGroupMembership(groupId);
         return chitGroupRepository.findById(groupId)
                 .map(this::convertToDTO)
                 .orElse(null);
@@ -107,9 +103,13 @@ public class ChitGroupService {
      */
     @Transactional(readOnly = true)
     public ChitGroupDTO getChitGroupByCode(String groupCode) {
-        return chitGroupRepository.findByGroupCode(groupCode)
+        ChitGroupDTO group = chitGroupRepository.findByGroupCode(groupCode)
                 .map(this::convertToDTO)
                 .orElse(null);
+        if (group != null) {
+            accessControlService.requireActiveGroupMembership(group.getId());
+        }
+        return group;
     }
 
     /**
@@ -120,7 +120,9 @@ public class ChitGroupService {
      */
     @Transactional(readOnly = true)
     public List<ChitGroupDTO> searchChitGroupsByName(String name) {
-        List<ChitGroup> groups = chitGroupRepository.findByNameContainingIgnoreCase(name);
+        List<ChitGroup> groups = getVisibleGroups().stream()
+                .filter(group -> group.getName().toLowerCase().contains(name.toLowerCase()))
+                .toList();
         return groups.stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
@@ -133,7 +135,7 @@ public class ChitGroupService {
      */
     @Transactional(readOnly = true)
     public List<ChitGroupDTO> getAllChitGroups() {
-        return chitGroupRepository.findAll().stream()
+        return getVisibleGroups().stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
@@ -146,7 +148,9 @@ public class ChitGroupService {
      */
     @Transactional(readOnly = true)
     public List<ChitGroupDTO> getChitGroupsByStatus(ChitGroupStatus status) {
-        List<ChitGroup> groups = chitGroupRepository.findByStatus(status);
+        List<ChitGroup> groups = getVisibleGroups().stream()
+                .filter(group -> group.getStatus() == status)
+                .toList();
         return groups.stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
@@ -162,8 +166,12 @@ public class ChitGroupService {
      */
     @Transactional
     public ChitGroupDTO updateChitGroup(Long groupId, CreateChitGroupDTO updateDTO) {
+        accessControlService.requireGroupAdmin(groupId);
         ChitGroup group = chitGroupRepository.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException("Chit group not found: " + groupId));
+                .orElseThrow(() -> {
+                    log.warn("Attempted to update non-existent ChitGroup: {}", groupId);
+                    return new IllegalArgumentException("Chit group not found: " + groupId);
+                });
 
         if (updateDTO.getName() != null) {
             group.setName(updateDTO.getName());
@@ -197,8 +205,12 @@ public class ChitGroupService {
      */
     @Transactional
     public ChitGroupDTO updateChitGroupStatus(Long groupId, ChitGroupStatus status) {
+        accessControlService.requireGroupAdmin(groupId);
         ChitGroup group = chitGroupRepository.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException("Chit group not found: " + groupId));
+                .orElseThrow(() -> {
+                    log.warn("Attempted to update status of non-existent ChitGroup: {}", groupId);
+                    return new IllegalArgumentException("Chit group not found: " + groupId);
+                });
 
         group.setStatus(status);
         group = chitGroupRepository.save(group);
@@ -216,8 +228,12 @@ public class ChitGroupService {
      */
     @Transactional
     public void deleteChitGroup(Long groupId) {
+        accessControlService.requireGroupAdmin(groupId);
         ChitGroup group = chitGroupRepository.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException("Chit group not found: " + groupId));
+                .orElseThrow(() -> {
+                    log.warn("Attempted to delete non-existent ChitGroup: {}", groupId);
+                    return new IllegalArgumentException("Chit group not found: " + groupId);
+                });
 
         chitGroupRepository.delete(group);
         log.info("Chit group deleted: {}", group.getName());
@@ -241,5 +257,15 @@ public class ChitGroupService {
                 .updatedAt(group.getUpdatedAt())
                 .build();
     }
-}
 
+    private List<ChitGroup> getVisibleGroups() {
+        if (accessControlService.isSaasAdmin()) {
+            return chitGroupRepository.findAll();
+        }
+
+        User currentUser = accessControlService.getCurrentUser();
+        return membershipRepository.findByUserIdAndStatus(currentUser.getId(), UserStatus.ACTIVE).stream()
+                .map(Membership::getChitGroup)
+                .toList();
+    }
+}

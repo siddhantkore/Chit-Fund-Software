@@ -37,3 +37,8 @@ docs
 application.properties
 src/main/resources/application.properties
 chit-client
+logs
+/logs
+logs/
+*.log
+*.log.*

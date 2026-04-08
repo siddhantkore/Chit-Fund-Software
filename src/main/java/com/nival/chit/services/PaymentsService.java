@@ -3,13 +3,20 @@ package com.nival.chit.services;
 import com.nival.chit.dto.CreatePaymentDTO;
 import com.nival.chit.dto.PaymentDTO;
 import com.nival.chit.entity.ChitGroup;
+import com.nival.chit.entity.Membership;
 import com.nival.chit.entity.Payments;
 import com.nival.chit.entity.User;
+import com.nival.chit.enums.GroupRole;
+import com.nival.chit.enums.UserRoles;
+import com.nival.chit.enums.UserStatus;
 import com.nival.chit.repository.ChitGroupRepository;
+import com.nival.chit.repository.MembershipRepository;
 import com.nival.chit.repository.PaymentsRepository;
 import com.nival.chit.repository.UserRepository;
+import com.nival.chit.security.AccessControlService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +36,8 @@ public class PaymentsService {
     private final PaymentsRepository paymentsRepository;
     private final UserRepository userRepository;
     private final ChitGroupRepository chitGroupRepository;
+    private final MembershipRepository membershipRepository;
+    private final AccessControlService accessControlService;
 
     /**
      * Record a payment (monthly contribution or loan repayment).
@@ -44,6 +53,21 @@ public class PaymentsService {
 
         ChitGroup group = chitGroupRepository.findById(createDTO.getChitGroupId())
                 .orElseThrow(() -> new IllegalArgumentException("Chit group not found: " + createDTO.getChitGroupId()));
+
+        Membership membership = membershipRepository
+                .findByUserIdAndGroupIdAndStatus(user.getId(), group.getId(), UserStatus.ACTIVE)
+                .orElseThrow(() -> new AccessDeniedException("Payments can only be recorded for active group members"));
+
+        User currentUser = accessControlService.getCurrentUser();
+        boolean canRecordForAnotherMember = accessControlService.isSaasAdmin(currentUser)
+                || currentUser.getRole() == UserRoles.ACCOUNTANT
+                || membershipRepository.findByUserIdAndGroupIdAndStatus(currentUser.getId(), group.getId(), UserStatus.ACTIVE)
+                .map(currentMembership -> currentMembership.getRole() == GroupRole.ADMIN)
+                .orElse(false);
+
+        if (currentUser.getId() != user.getId() && !canRecordForAnotherMember) {
+            throw new AccessDeniedException("You can only record payments for yourself unless you administer this group");
+        }
 
         Payments payment = new Payments();
         payment.setMonth(createDTO.getMonth());
@@ -69,6 +93,7 @@ public class PaymentsService {
      */
     @Transactional(readOnly = true)
     public List<PaymentDTO> getPaymentsByUserAndGroup(Long userId, Long groupId) {
+        accessControlService.requireSelfOrGroupAdmin(userId, groupId);
         List<Payments> payments = paymentsRepository.findByGroupAndUser(groupId, userId);
         return payments.stream()
                 .map(this::convertToDTO)
@@ -83,6 +108,7 @@ public class PaymentsService {
      */
     @Transactional(readOnly = true)
     public List<PaymentDTO> getPaymentsByGroup(Long groupId) {
+        accessControlService.requireGroupAdmin(groupId);
         return paymentsRepository.findAll().stream()
                 .filter(p -> p.getChitGroup().getId() == groupId)
                 .map(this::convertToDTO)
@@ -101,6 +127,7 @@ public class PaymentsService {
     public PaymentDTO updatePaymentStatus(Long paymentId, String status) {
         Payments payment = paymentsRepository.findById(paymentId)
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
+        accessControlService.requireGroupAdmin(payment.getChitGroup().getId());
 
         payment.setStatus(status);
         payment = paymentsRepository.save(payment);
@@ -113,17 +140,27 @@ public class PaymentsService {
     public PaymentDTO verifyPayment(Long paymentId, Long accountantId) {
         Payments payment = paymentsRepository.findById(paymentId)
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
-        
-        User accountant = userRepository.findById(accountantId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + accountantId));
+        User verifier = accessControlService.getCurrentUser();
+
+        boolean canVerify = accessControlService.isSaasAdmin(verifier)
+                || verifier.getRole() == UserRoles.ACCOUNTANT
+                || membershipRepository.findByUserIdAndGroupIdAndStatus(
+                        verifier.getId(),
+                        payment.getChitGroup().getId(),
+                        UserStatus.ACTIVE
+                ).map(membership -> membership.getRole() == GroupRole.ADMIN)
+                .orElse(false);
+        if (!canVerify) {
+            throw new AccessDeniedException("Only a group admin, accountant, or SaaS admin can verify payments");
+        }
 
         payment.setVerified(true);
-        payment.setVerifiedBy(accountant);
+        payment.setVerifiedBy(verifier);
         payment.setVerifiedAt(LocalDateTime.now());
         payment.setStatus("COMPLETED"); // Auto-complete on verification if needed
 
         payment = paymentsRepository.save(payment);
-        log.info("Payment {} verified by accountant {}", paymentId, accountantId);
+        log.info("Payment {} verified by user {} (requested accountantId={})", paymentId, verifier.getId(), accountantId);
 
         return convertToDTO(payment);
     }
@@ -152,4 +189,3 @@ public class PaymentsService {
                 .build();
     }
 }
-

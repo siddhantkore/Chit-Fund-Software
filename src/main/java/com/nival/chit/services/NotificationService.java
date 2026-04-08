@@ -11,6 +11,7 @@ import com.nival.chit.repository.ChitGroupRepository;
 import com.nival.chit.repository.NotificationConfigRepository;
 import com.nival.chit.repository.NotificationRepository;
 import com.nival.chit.repository.UserRepository;
+import com.nival.chit.security.AccessControlService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,7 @@ public class NotificationService {
     private final NotificationConfigRepository notificationConfigRepository;
     private final ChitGroupRepository chitGroupRepository;
     private final UserRepository userRepository;
+    private final AccessControlService accessControlService;
 
     /**
      * Create a new notification configuration for a chit group.
@@ -43,6 +45,7 @@ public class NotificationService {
      */
     @Transactional
     public NotificationConfigDTO createNotificationConfig(CreateNotificationConfigDTO createDTO) {
+        accessControlService.requireGroupAdmin(createDTO.getChitGroupId());
         ChitGroup chitGroup = chitGroupRepository.findById(createDTO.getChitGroupId())
                 .orElseThrow(() -> new IllegalArgumentException("Chit group not found"));
 
@@ -81,6 +84,7 @@ public class NotificationService {
      */
     @Transactional(readOnly = true)
     public List<NotificationConfigDTO> getNotificationConfigsByGroup(Long chitGroupId) {
+        accessControlService.requireGroupAdmin(chitGroupId);
         List<NotificationConfig> configs = notificationConfigRepository.findByChitGroupId(chitGroupId);
         return configs.stream()
                 .map(this::convertToDTO)
@@ -98,6 +102,7 @@ public class NotificationService {
     public NotificationConfigDTO updateNotificationConfig(Long configId, CreateNotificationConfigDTO updateDTO) {
         NotificationConfig config = notificationConfigRepository.findById(configId)
                 .orElseThrow(() -> new IllegalArgumentException("Notification config not found"));
+        accessControlService.requireGroupAdmin(config.getChitGroup().getId());
 
         if (updateDTO.getAdvanceDays() != null) {
             config.setAdvanceDays(updateDTO.getAdvanceDays());
@@ -149,6 +154,7 @@ public class NotificationService {
      */
     @Transactional(readOnly = true)
     public List<NotificationResponseDTO> getNotificationsByUser(Long userId) {
+        accessControlService.requireSelfOrSaasAdmin(userId);
         List<Notification> notifications = notificationRepository.findByUserId(userId);
         return notifications.stream()
                 .map(this::convertToResponseDTO)
@@ -163,6 +169,7 @@ public class NotificationService {
      */
     @Transactional(readOnly = true)
     public List<NotificationResponseDTO> getUnreadNotificationsByUser(Long userId) {
+        accessControlService.requireSelfOrSaasAdmin(userId);
         List<Notification> notifications = notificationRepository.findByUserIdAndStatus(userId, "UNREAD");
         return notifications.stream()
                 .map(this::convertToResponseDTO)
@@ -179,6 +186,7 @@ public class NotificationService {
     public NotificationResponseDTO markAsRead(Long notificationId) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
+        accessControlService.requireSelfOrSaasAdmin(notification.getUser().getId());
 
         notification.setStatus("READ");
         notification = notificationRepository.save(notification);
@@ -194,6 +202,7 @@ public class NotificationService {
      */
     @Transactional(readOnly = true)
     public Long getUnreadCount(Long userId) {
+        accessControlService.requireSelfOrSaasAdmin(userId);
         return notificationRepository.countUnreadByUserId(userId);
     }
 
@@ -229,4 +238,3 @@ public class NotificationService {
                 .build();
     }
 }
-

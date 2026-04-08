@@ -4,6 +4,7 @@ import com.nival.chit.dto.MemberLoanResponseDTO;
 import com.nival.chit.dto.MemberLoanSummaryDTO;
 import com.nival.chit.entity.MemberLoan;
 import com.nival.chit.repository.MemberLoanRepository;
+import com.nival.chit.security.AccessControlService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
 public class MemberLoanService {
 
     private final MemberLoanRepository memberLoanRepository;
+    private final AccessControlService accessControlService;
 
     /**
      * Calculate the current payable amount for a loan based on daily interest.
@@ -72,6 +74,7 @@ public class MemberLoanService {
      */
     @Transactional(readOnly = true)
     public List<MemberLoanResponseDTO> getAllLoansByGroupId(Long chitGroupId) {
+        accessControlService.requireGroupAdmin(chitGroupId);
         List<MemberLoan> loans = memberLoanRepository.findByChitGroupId(chitGroupId);
         
         return loans.stream()
@@ -88,6 +91,7 @@ public class MemberLoanService {
      */
     @Transactional(readOnly = true)
     public List<MemberLoanSummaryDTO> getAllLoansByUserId(Long userId) {
+        accessControlService.requireSelfOrSaasAdmin(userId);
         List<MemberLoan> loans = memberLoanRepository.findByUserId(userId);
         
         return loans.stream()
@@ -105,6 +109,7 @@ public class MemberLoanService {
      */
     @Transactional(readOnly = true)
     public Double getCurrentPayable(Long userId, Long chitGroupId) {
+        accessControlService.requireSelfOrGroupAdmin(userId, chitGroupId);
         return memberLoanRepository.findByUserIdAndChitGroupId(userId, chitGroupId)
                 .map(this::calculateCurrentPayable)
                 .orElse(null);
@@ -119,6 +124,7 @@ public class MemberLoanService {
      */
     @Transactional(readOnly = true)
     public MemberLoanResponseDTO getLoanByUserAndGroup(Long userId, Long chitGroupId) {
+        accessControlService.requireSelfOrGroupAdmin(userId, chitGroupId);
         return memberLoanRepository.findByUserIdAndChitGroupId(userId, chitGroupId)
                 .map(this::convertToResponseDTO)
                 .orElse(null);
@@ -179,4 +185,3 @@ public class MemberLoanService {
                 .build();
     }
 }
-
